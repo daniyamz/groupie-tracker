@@ -7,11 +7,15 @@ import (
 )
 
 func main() {
-	fmt.Println("Sever is running on port :8090")
+	fmt.Println("Starting Server...")
+
+	fmt.Println("On htt://localhost:8090")
+
+	fmt.Println("To shut down the server press CTRL + C")
 
 	musreco := http.NewServeMux()
 
-	musreco.HandleFunc("/", handlers.LandingPageHandler)
+	musreco.HandleFunc("/", handlers.HomePageHandler)
 
 	err := http.ListenAndServe(":8090", musreco)
 	if err != nil {
