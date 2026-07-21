@@ -3,22 +3,22 @@ package main
 import (
 	"fmt"
 	"groupie-tracker/handlers"
+	"log"
 	"net/http"
 )
 
 func main() {
-	fmt.Println("Starting Server...")
+	//create a new instance of a servemux
+	grup := http.NewServeMux()
 
-	fmt.Println("On htt://localhost:8090")
+	//register handlers
+	grup.HandleFunc("/", handlers.HomePageHandler)
+	grup.HandleFunc("/artists", handlers.MainPageHandler)
 
-	fmt.Println("To shut down the server press CTRL + C")
-
-	musreco := http.NewServeMux()
-
-	musreco.HandleFunc("/", handlers.HomePageHandler)
-
-	err := http.ListenAndServe(":8090", musreco)
+	fmt.Println("Server running at port :8090")
+	fmt.Println("To shut down server Press CTRL + C")
+	err := http.ListenAndServe(":8090", grup)
 	if err != nil {
-		fmt.Println("Error in running the server")
+		log.Fatal()
 	}
 }

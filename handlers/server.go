@@ -3,60 +3,94 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	datainfor "groupie-tracker/data"
+	"groupie-tracker/config"
 	"html/template"
 	"net/http"
-	"os"
 )
 
-// Home page handler
+type Datas struct {
+	Artists   []Artist   `json:"artists"`
+	Locations []Location `json:"locations"`
+	Dates     []Date     `json:"dates"`
+	Relations []Relation `json:"relations"`
+}
+
+type Artist struct {
+	Id           int      `json:"id"`
+	Image        string   `json:"image"`
+	Name         string   `json:"name"`
+	Members      []string `json:"members"`
+	CreationDate int      `json:"creationDate"`
+	FirstAlbum   string   `json:"firstAlbum"`
+	Locations    string   `json:"locations"`
+	ConcertDates string   `json:"concertDates"`
+	Relations    string   `json:"relations"`
+}
+
+type Location struct {
+	Id        int      `json:"id"`
+	Locations []string `json:"locations"`
+	Dates     string   `json:"dates"`
+}
+
+type Date struct {
+	Id    int      `json:"id"`
+	Dates []string `json:"dates"`
+}
+
+type Relation struct {
+	Id             int                 `json:"id"`
+	DatesLocations map[string][]string `json:"datesLocations"`
+}
+
+// function for the landing page
 func HomePageHandler(w http.ResponseWriter, r *http.Request) {
-	//validating request path
+	// template to parse index.html
+	temp, err := template.ParseFiles("templates/index.html")
 	if r.URL.Path != "/" {
 		http.Error(w, "PATH NOT FOUND", http.StatusNotFound)
 		return
 	}
-	// validating method request
-	if r.Method != http.MethodGet {
-		http.Error(w, "METHOD NOT FOUND", http.StatusNotFound)
-		return
-	}
-	//set index.html as template and rendering template
-	templ, err := template.ParseFiles("templates/index.html")
+	//validating template
 	if err != nil {
 		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
 		return
 	}
-	templ.Execute(w, nil)
-}
-func jsonOpen(file string, date datainfor.Datas) datainfor.Datas {
-	jsonfile, err := os.Open("./jsoncontents/" + file)
-	if err != nil {
-		fmt.Printf("error occured: %v", err)
-	}
-	defer jsonfile.Close()
-
-	var jsondata datainfor.Datas
-	decoder := json.NewDecoder(jsonfile)
-
-	err = decoder.Decode(&jsondata)
-
-	return jsondata
+	temp.Execute(w, nil)
 }
 
-func MainPage(w http.ResponseWriter, r *http.Request) {
-	mainp, err := template.ParseFiles("templates/main.html")
+// function to get data fetch json data
+func getJsonData(str string, data Datas) (Datas, error) {
+	resp, err := http.Get(str)
 	if err != nil {
-		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
-		return
+		return data, fmt.Errorf("error: %v", err)
 	}
-	if r.URL.Path != "/mainpage" {
+	defer resp.Body.Close()
+
+	var jdata Datas
+
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		return data, fmt.Errorf("error occured: %v", err)
+	}
+	return jdata, nil
+}
+
+// mainPageHandler for main.html
+func MainPageHandler(w http.ResponseWriter, r *http.Request) {
+	maint, err := template.ParseFiles("templates/main.html")
+	if r.URL.Path != "/artists" {
 		http.Error(w, "PATH NOT FOUND", http.StatusNotFound)
 		return
 	}
-	var data datainfor.Datas
+	var adata Datas
 
-	data = jsonOpen("artists.json", data)
-	data = jsonOpen("locations.json", data)
-	mainp.Execute(w, data)
+	adata, _ = getJsonData(config.Api+"/artists", adata)
+	adata, _ = getJsonData(config.Api+"/locations", adata)
+
+	if err != nil {
+		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
+		return
+	}
+	maint.Execute(w, adata)
 }
