@@ -6,13 +6,14 @@ import (
 	"groupie-tracker/config"
 	"html/template"
 	"net/http"
+	"strconv"
 )
 
 type Datas struct {
-	Artists   []Artist   `json:"artists"`
-	Locations []Location `json:"locations"`
-	Dates     []Date     `json:"dates"`
-	Relations []Relation `json:"relations"`
+	ArtistsDatas   []Artist   `json:"artists"`
+	LocationsDatas []Location `json:"locations"`
+	DatesDatas     []Date     `json:"dates"`
+	RelationsDatas []Relation `json:"relations"`
 }
 
 type Artist struct {
@@ -93,4 +94,29 @@ func MainPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	maint.Execute(w, adata)
+}
+
+func ArtistHandler(w http.ResponseWriter, r *http.Request) {
+	artist, err := template.ParseFiles("templates/artists.html")
+
+	var art Datas
+
+	art, _ = getJsonData(config.Api+"/artists", art)
+	art, _ = getJsonData(config.Api+"locations", art)
+
+	id := r.URL.Path[9:]
+	num, _ := strconv.Atoi(id)
+
+	var artimfor = make(map[string]any)
+	artimfor["Image"] = art.ArtistsDatas[num-1].Image
+	artimfor["Name"] = art.ArtistsDatas[num-1].Name
+	artimfor["FirstAlbum"] = art.ArtistsDatas[num-1].FirstAlbum
+	artimfor["Menbers"] = art.ArtistsDatas[num-1].Members
+	artimfor["ConcertDates"] = art.ArtistsDatas[num-1].ConcertDates
+	artimfor["CreationDates"] = art.ArtistsDatas[num-1].CreationDate
+	if err != nil {
+		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
+		return
+	}
+	artist.Execute(w, artimfor)
 }
