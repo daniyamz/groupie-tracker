@@ -6,14 +6,13 @@ import (
 	"groupie-tracker/config"
 	"html/template"
 	"net/http"
-	"strconv"
 )
 
 type Datas struct {
-	ArtistsDatas   []Artist   `json:"artists"`
-	LocationsDatas []Location `json:"locations"`
-	DatesDatas     []Date     `json:"dates"`
-	RelationsDatas []Relation `json:"relations"`
+	Artist
+	LocationsDatas Location
+	DatesDatas     Date
+	RelationsDatas Relation
 }
 
 type Artist struct {
@@ -23,25 +22,30 @@ type Artist struct {
 	Members      []string `json:"members"`
 	CreationDate int      `json:"creationDate"`
 	FirstAlbum   string   `json:"firstAlbum"`
-	Locations    string   `json:"locations"`
-	ConcertDates string   `json:"concertDates"`
-	Relations    string   `json:"relations"`
 }
 
 type Location struct {
 	Id        int      `json:"id"`
 	Locations []string `json:"locations"`
-	Dates     string   `json:"dates"`
+}
+
+type LocationIndex struct {
+	Index []Location `json:"index"`
 }
 
 type Date struct {
 	Id    int      `json:"id"`
 	Dates []string `json:"dates"`
 }
-
+type DateIndex struct {
+	Index []Date `json:"index"`
+}
 type Relation struct {
 	Id             int                 `json:"id"`
 	DatesLocations map[string][]string `json:"datesLocations"`
+}
+type RelationIndex struct {
+	Index []Relation `json:"index"`
 }
 
 // function for the landing page
@@ -61,62 +65,82 @@ func HomePageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // function to get data fetch json data
-func getJsonData(str string, data Datas) (Datas, error) {
-	resp, err := http.Get(str)
+func fetchApi(url string, target any) error {
+	resp, err := http.Get(url)
 	if err != nil {
-		return data, fmt.Errorf("error: %v", err)
+		return fmt.Errorf("error: %v", err)
 	}
 	defer resp.Body.Close()
 
-	var jdata Datas
-
-	err = json.NewDecoder(resp.Body).Decode(&data)
+	err = json.NewDecoder(resp.Body).Decode(target)
 	if err != nil {
-		return data, fmt.Errorf("error occured: %v", err)
+		return fmt.Errorf("error occured: %v", err)
 	}
-	return jdata, nil
-}
-
-// mainPageHandler for main.html
-func MainPageHandler(w http.ResponseWriter, r *http.Request) {
-	maint, err := template.ParseFiles("templates/main.html")
-	if r.URL.Path != "/artists" {
-		http.Error(w, "PATH NOT FOUND", http.StatusNotFound)
-		return
-	}
-	var adata Datas
-
-	adata, _ = getJsonData(config.Api+"/artists", adata)
-	adata, _ = getJsonData(config.Api+"/locations", adata)
-
-	if err != nil {
-		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
-		return
-	}
-	maint.Execute(w, adata)
+	return nil
 }
 
 func ArtistHandler(w http.ResponseWriter, r *http.Request) {
 	artist, err := template.ParseFiles("templates/artists.html")
 
-	var art Datas
+	//validating the get method
+	if r.Method != http.MethodGet {
+		http.Error(w, "METHOD NOT ALLOWED", http.StatusMethodNotAllowed)
+		return
+	}
 
-	art, _ = getJsonData(config.Api+"/artists", art)
-	art, _ = getJsonData(config.Api+"locations", art)
+	//fetch artists data
+	var artdat []Artist
+	err = fetchApi(config.Api+"/artists", &artist)
+	if err != nil {
+		http.Error(w, "INTERNAL SERVER ERROR: FAILD TO PARSE DATA", http.StatusInternalServerError)
+		return
+	}
+	var locIdx LocationIndex
+	if err := fetchApi(config.Api+"/loctions", &locIdx); err != nil {
+		http.Error(w, "FETCH ERROR: LOCATIONS", http.StatusInternalServerError)
+		return
+	}
+	var dateIdx DateIndex
+	err = fetchApi(config.Api+"/dates", &dateIdx)
+	if err != nil {
+		http.Error(w, "FETCH ERROR: DATES", http.StatusInternalServerError)
+		return
+	}
+	var relIdx RelationIndex
+	err = fetchApi(config.Api+"/relations", &relIdx)
+	if err != nil {
+		http.Error(w, "FETCH ERROR: RELATIONS", http.StatusInternalServerError)
+		return
+	}
+	var finalData []Datas
 
-	id := r.URL.Path[9:]
-	num, _ := strconv.Atoi(id)
-
-	var artimfor = make(map[string]any)
-	artimfor["Image"] = art.ArtistsDatas[num-1].Image
-	artimfor["Name"] = art.ArtistsDatas[num-1].Name
-	artimfor["FirstAlbum"] = art.ArtistsDatas[num-1].FirstAlbum
-	artimfor["Menbers"] = art.ArtistsDatas[num-1].Members
-	artimfor["ConcertDates"] = art.ArtistsDatas[num-1].ConcertDates
-	artimfor["CreationDates"] = art.ArtistsDatas[num-1].CreationDate
+	for i := 0; i < len(artdat); i++ {
+		artistdata := Datas{
+			Artist: artdat[i],
+		}
+		for _, l := range locIdx.Index {
+			if l.Id == artdat[i].Id {
+				artistdata.LocationsDatas = l
+				break
+			}
+		}
+		for _, d := range dateIdx.Index {
+			if d.Id == artdat[i].Id {
+				artistdata.DatesDatas = d
+				break
+			}
+		}
+		for _, r := range relIdx.Index {
+			if r.Id == artdat[i].Id {
+				artistdata.RelationsDatas = r
+				break
+			}
+		}
+		finalData = append(finalData, artistdata)
+	}
+	err = artist.Execute(w, finalData)
 	if err != nil {
 		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
 		return
 	}
-	artist.Execute(w, artimfor)
 }

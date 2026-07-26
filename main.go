@@ -13,7 +13,7 @@ func main() {
 
 	//register handlers
 	grup.HandleFunc("/", handlers.HomePageHandler)
-	grup.HandleFunc("/artists", handlers.MainPageHandler)
+	grup.HandleFunc("/artists", handlers.ArtistHandler)
 
 	fmt.Println("Server running at port :8090")
 	fmt.Println("To shut down server Press CTRL + C")

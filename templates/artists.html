@@ -3,9 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Groupie-Tracker</title>
 </head>
 <body>
-    
+    <div class="image">
+        <img src="{{.Image}}" alt="Artist Image">
+    </div>
+    <div class="infor">
+        <p class="name">{{.Name}}</p> <br>
+        <p><strong>First Apperance</strong>{{.CreationDates}}</p>
+        <p class="FAlbum"><strong>First Album</strong>{{.FirstAlbum}}</p>
+        <p class="members"><strong>Members :</strong>
+            <ul>
+                {{.range Members}}
+                <li>{{.}}</li>
+                {{end}}
+            </ul>
+        </p>
+    </div>
 </body>
 </html>
