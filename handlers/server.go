@@ -75,13 +75,6 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ArtistHandler(w http.ResponseWriter, r *http.Request) {
-	artist, err := template.ParseFiles("templates/artists.html")
-
-	if err != nil {
-		log.Printf("Template parsing failed: %v", err)
-		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
-		return
-	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "METHOD NOT ALLOWED", http.StatusMethodNotAllowed)
 		return
@@ -89,8 +82,18 @@ func ArtistHandler(w http.ResponseWriter, r *http.Request) {
 	var artdata []Artist
 	er := FetchJsondata(config.Api+"/artists", &artdata)
 	if er != nil {
+		log.Printf("API fatch faild: %v", er)
 		http.Error(w, "INTERNAL SERVER ERROR: FETCHING ARTISTS DATA", http.StatusInternalServerError)
 		return
 	}
-	artist.Execute(w, artdata)
+	artist, err := template.ParseFiles("templates/artists.html")
+	if err != nil {
+		log.Printf("Template parsing failed: %v", err)
+		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
+		return
+	}
+	err = artist.Execute(w, artdata)
+	if err != nil {
+		log.Printf("Template execution faild: %v", err)
+	}
 }
