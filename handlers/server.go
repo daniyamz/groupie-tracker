@@ -5,15 +5,10 @@ import (
 	"fmt"
 	"groupie-tracker/config"
 	"html/template"
+	"log"
 	"net/http"
+	"time"
 )
-
-type Datas struct {
-	Artist
-	LocationsDatas Location
-	DatesDatas     Date
-	RelationsDatas Relation
-}
 
 type Artist struct {
 	Id           int      `json:"id"`
@@ -22,6 +17,9 @@ type Artist struct {
 	Members      []string `json:"members"`
 	CreationDate int      `json:"creationDate"`
 	FirstAlbum   string   `json:"firstAlbum"`
+	Location     string   `json:"locations"`
+	ConcertDate  string   `json:"concertDates"`
+	Relation     string   `json:"relations"`
 }
 
 type Location struct {
@@ -48,99 +46,51 @@ type RelationIndex struct {
 	Index []Relation `json:"index"`
 }
 
-// function for the landing page
-func HomePageHandler(w http.ResponseWriter, r *http.Request) {
-	// template to parse index.html
-	temp, err := template.ParseFiles("templates/index.html")
-	if r.URL.Path != "/" {
-		http.Error(w, "PATH NOT FOUND", http.StatusNotFound)
-		return
-	}
-	//validating template
-	if err != nil {
-		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
-		return
-	}
-	temp.Execute(w, nil)
-}
+func FetchJsondata(url string, target interface{}) error {
+	client := &http.Client{Timeout: 10 * time.Second}
 
-// function to get data fetch json data
-func fetchApi(url string, target any) error {
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
-		return fmt.Errorf("error: %v", err)
+		return err
 	}
 	defer resp.Body.Close()
 
-	err = json.NewDecoder(resp.Body).Decode(target)
-	if err != nil {
-		return fmt.Errorf("error occured: %v", err)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("fail to fetch %s, StatusCode %d", err, resp.StatusCode)
 	}
-	return nil
+	return json.NewDecoder(resp.Body).Decode(target)
+}
+func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	htmp, err := template.ParseFiles("templates/index.html")
+	if r.URL.Path != "/" {
+		http.Error(w, "PATH NOT ALLOWED", http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, "INTERNAL SERVER ERROR: FETCHING ARTISTS DATA", http.StatusInternalServerError)
+		return
+	}
+	htmp.Execute(w, nil)
 }
 
 func ArtistHandler(w http.ResponseWriter, r *http.Request) {
 	artist, err := template.ParseFiles("templates/artists.html")
 
-	//validating the get method
+	if err != nil {
+		log.Printf("Template parsing failed: %v", err)
+		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "METHOD NOT ALLOWED", http.StatusMethodNotAllowed)
 		return
 	}
-
-	//fetch artists data
-	var artdat []Artist
-	err = fetchApi(config.Api+"/artists", &artist)
-	if err != nil {
-		http.Error(w, "INTERNAL SERVER ERROR: FAILD TO PARSE DATA", http.StatusInternalServerError)
+	var artdata []Artist
+	er := FetchJsondata(config.Api+"/artists", &artdata)
+	if er != nil {
+		http.Error(w, "INTERNAL SERVER ERROR: FETCHING ARTISTS DATA", http.StatusInternalServerError)
 		return
 	}
-	var locIdx LocationIndex
-	if err := fetchApi(config.Api+"/loctions", &locIdx); err != nil {
-		http.Error(w, "FETCH ERROR: LOCATIONS", http.StatusInternalServerError)
-		return
-	}
-	var dateIdx DateIndex
-	err = fetchApi(config.Api+"/dates", &dateIdx)
-	if err != nil {
-		http.Error(w, "FETCH ERROR: DATES", http.StatusInternalServerError)
-		return
-	}
-	var relIdx RelationIndex
-	err = fetchApi(config.Api+"/relations", &relIdx)
-	if err != nil {
-		http.Error(w, "FETCH ERROR: RELATIONS", http.StatusInternalServerError)
-		return
-	}
-	var finalData []Datas
-
-	for i := 0; i < len(artdat); i++ {
-		artistdata := Datas{
-			Artist: artdat[i],
-		}
-		for _, l := range locIdx.Index {
-			if l.Id == artdat[i].Id {
-				artistdata.LocationsDatas = l
-				break
-			}
-		}
-		for _, d := range dateIdx.Index {
-			if d.Id == artdat[i].Id {
-				artistdata.DatesDatas = d
-				break
-			}
-		}
-		for _, r := range relIdx.Index {
-			if r.Id == artdat[i].Id {
-				artistdata.RelationsDatas = r
-				break
-			}
-		}
-		finalData = append(finalData, artistdata)
-	}
-	err = artist.Execute(w, finalData)
-	if err != nil {
-		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
-		return
-	}
+	artist.Execute(w, artdata)
 }
