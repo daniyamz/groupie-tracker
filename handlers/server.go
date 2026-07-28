@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+type MasterData struct {
+	Artists   []Artist
+	Relations []Relation
+}
+
 type Artist struct {
 	Id           int      `json:"id"`
 	Image        string   `json:"image"`
@@ -46,20 +51,6 @@ type RelationIndex struct {
 	Index []Relation `json:"index"`
 }
 
-func FetchJsondata(url string, target interface{}) error {
-	client := &http.Client{Timeout: 10 * time.Second}
-
-	resp, err := client.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("fail to fetch %s, StatusCode %d", err, resp.StatusCode)
-	}
-	return json.NewDecoder(resp.Body).Decode(target)
-}
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	htmp, err := template.ParseFiles("templates/index.html")
 	if r.URL.Path != "/" {
@@ -74,17 +65,45 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	htmp.Execute(w, nil)
 }
 
+func fetchJsondata(url string, target interface{}) error {
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("fail to fetch %s, StatusCode %d", err, resp.StatusCode)
+	}
+	return json.NewDecoder(resp.Body).Decode(target)
+}
+func MainPageHandler(w http.ResponseWriter, r *http.Request) {
+}
+
 func ArtistHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "METHOD NOT ALLOWED", http.StatusMethodNotAllowed)
 		return
 	}
 	var artdata []Artist
-	er := FetchJsondata(config.Api+"/artists", &artdata)
-	if er != nil {
-		log.Printf("API fatch faild: %v", er)
+	var relaIndex RelationIndex
+	err := fetchJsondata(config.Api+"/artists", &artdata)
+	if err != nil {
+		log.Printf("API fatch faild: %v", err)
 		http.Error(w, "INTERNAL SERVER ERROR: FETCHING ARTISTS DATA", http.StatusInternalServerError)
 		return
+	}
+	err = fetchJsondata(config.Api+"/relation", &relaIndex)
+	if err != nil {
+		log.Printf("API fatch faild: %v", err)
+		http.Error(w, "INTERNAL SERVER ERROR: FETCHING JSON", http.StatusInternalServerError)
+		return
+	}
+	finalData := MasterData{
+		Artists:   artdata,
+		Relations: relaIndex.Index,
 	}
 	artist, err := template.ParseFiles("templates/artists.html")
 	if err != nil {
@@ -92,7 +111,7 @@ func ArtistHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
 		return
 	}
-	err = artist.Execute(w, artdata)
+	err = artist.Execute(w, finalData)
 	if err != nil {
 		log.Printf("Template execution faild: %v", err)
 	}
