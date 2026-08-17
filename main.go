@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"groupie-tracker/handlers"
+	"log"
 	"net/http"
 )
 
@@ -11,5 +12,8 @@ func main() {
 	apimux := http.NewServeMux()
 	apimux.HandleFunc("/", handlers.HomeHandler)
 	apimux.HandleFunc("/artists", handlers.ArtistHandler)
-	http.ListenAndServe(":8090", apimux)
+	err := http.ListenAndServe(":8090", apimux)
+	if err != nil {
+		log.Printf("Server fails to start: %v", err)
+	}
 }
