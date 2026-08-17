@@ -6,25 +6,39 @@
     <title>Groupie-Tracker</title>
 </head>
 <body>
-    <div>
-        <a href="/">home</a>
-        <h1>Artists</h1>
-        {{range .Artists}}
-            <div>
-                <img src="{{.Image}}" alt="{{.Name}}" width="200">
-                <p>{{.Name}}</p>
-                <p>First Album: {{.FirstAlbum}}</p>
-                <p>Creation Date: {{.CreationDate}}</p>
-                <p><strong>Members:</strong></p>
+    <a href="/" class="home">home</a>
+    <h1 class="head1">Artists</h1>
+    {{$master := .}}
+        {{range $i, $artist := .Artists}}
+            <div class="card">
+                <div class="image">
+                    <img src="{{$artist.Image}}" alt="Image Artists" width="200">
+                </div>
+                    <div class="info">
+                        <p class="name">{{$artist.Name}}</p>
+                        <p class="infotitle"><strong>First Album: </strong>{{$artist.FirstAlbum}}</p>
+                        <p class="infotitle"><strong>Creation Date: </strong>{{$artist.CreationDate}}</p>
+                        <p class="mambers"><strong>Members:</strong>
+                            <ul>
+                                {{range $artist.Members}}
+                                    <li>{{.}}</li>
+                                {{end}}
+                            </ul>
+                        </p>
+                    </div>
+            </div>
+            <div class="relation">
                 <ul>
-                    {{range .Members}}
-                        <li>{{.}}</li>
+                    {{range $key, $values := (index $master.Relations).DatasLocations}}   
+                    <li>
+                        <strong>{{$key}}</strong>
+                        {{range $index, $date := $values}}
+                        {{if $index}}, {{end}} {{$date}}
+                        {{end}}
+                    </li>
                     {{end}}
                 </ul>
             </div>
-        {{else}}
-            <p>No artists found.</p>
         {{end}}
-    </div>
 </body>
 </html>
